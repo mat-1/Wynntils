@@ -848,7 +848,7 @@ public class WebManager {
 
     private static void tryReloadApiUrls(boolean async, boolean inSetup) {
         if (apiUrls == null) {
-            handler.addRequest(new Request("https://api.wynntils.com/webapi", "webapi")
+            handler.addRequest(new Request("https://cdn.matdoes.dev/wynntils-webapi.toml", "webapi")
                 .cacheTo(new File(API_CACHE_ROOT, "webapi.txt"))
                 .handleWebReader(reader -> {
                     apiUrls = reader;
