@@ -17,7 +17,13 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew build
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v1
       with:
         name: build-artifacts
-        path: build/libs/*.jar
+        path: build/libs
+    - name: Create a Release
+      uses: elgohr/Github-Release-Action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      with:
+        args: Release
