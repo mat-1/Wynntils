@@ -627,7 +627,7 @@ public class WebManager {
     }
 
     public static ArrayList<MusicProfile> getCurrentAvailableSongs() throws IOException {
-        URLConnection st = new URL(apiUrls.get("WynnSounds")).openConnection();
+        URLConnection st = new URL("https://api.github.com/repos/mat-1/WynncraftOST/contents/music").openConnection();
         st.setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
         st.setConnectTimeout(REQUEST_TIMEOUT_MILLIS);
         st.setReadTimeout(REQUEST_TIMEOUT_MILLIS);
@@ -848,7 +848,7 @@ public class WebManager {
 
     private static void tryReloadApiUrls(boolean async, boolean inSetup) {
         if (apiUrls == null) {
-            handler.addRequest(new Request("https://cdn.matdoes.dev/wynntils-webapi.toml", "webapi")
+            handler.addRequest(new Request("https://api.wynntils.com/webapi", "webapi")
                 .cacheTo(new File(API_CACHE_ROOT, "webapi.txt"))
                 .handleWebReader(reader -> {
                     apiUrls = reader;
