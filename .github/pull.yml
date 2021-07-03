@@ -1,5 +1,5 @@
 version: "1"
 rules:
-  - base: custom-webapis
+  - base: development
     upstream: wynntils:development
     mergeMethod: hardreset
