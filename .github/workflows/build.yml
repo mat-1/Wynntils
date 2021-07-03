@@ -27,3 +27,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       with:
         args: Release
+    - name: Upload assets to GitHub
+      uses: AButler/upload-release-assets@v2.0
+      with:
+        files: 'build/libs/*'
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
