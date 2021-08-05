@@ -28,12 +28,3 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: update-${{ github.sha }}
         commit: "development"
-
-
-    - uses: MCJack123/ghaction-Generate-Release-Hashes@v1
-      with:
-        hash-type: md5
-        file-name: hashes.txt
-    - uses: actions/upload-artifact@v2
-      with:
-        path: hashes.txt

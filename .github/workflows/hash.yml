@@ -1,0 +1,17 @@
+name: Release
+
+on:
+  release:
+    types: [ created ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: MCJack123/ghaction-Generate-Release-Hashes@v1
+      with:
+        hash-type: md5
+        file-name: hashes.txt
+    - uses: actions/upload-artifact@v2
+      with:
+        path: hashes.txt
