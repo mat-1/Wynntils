@@ -26,7 +26,7 @@ jobs:
       with:
         artifacts: "build/libs/Wynntils.jar"
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag: ${{ github.sha }}
+        tag: update-${{ github.sha }}
         commit: "development"
 
     - uses: MCJack123/ghaction-generate-release-hashes@v1
