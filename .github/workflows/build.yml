@@ -1,6 +1,6 @@
 name: Java CI with Gradle
 
-on: [ push, pull_request ]
+on: [ push ]
 
 jobs:
   build:
@@ -21,3 +21,10 @@ jobs:
       with:
         name: build-artifacts
         path: build/libs
+
+    - name: Create a Release
+      uses: elgohr/Github-Release-Action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      with:
+        args: Update
