@@ -26,5 +26,5 @@ jobs:
       with:
         artifacts: "build/libs/Wynntils.jar"
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag: "$GITHUB_RUN_ID"
+        tag: "${GITHUB_RUN_ID}"
         commit: "development"
