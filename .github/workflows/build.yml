@@ -1,7 +1,9 @@
 name: Java CI with Gradle
 
-on: [ push ]
-
+on:
+  push:
+    branches:
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,9 +24,3 @@ jobs:
         name: build-artifacts
         path: build/libs
 
-    - uses: ncipollo/release-action@v1
-      with:
-        artifacts: "build/libs/Wynntils.jar"
-        token: ${{ secrets.RELEASE_TOKEN }}
-        tag: update-${{ github.sha }}
-        commit: "development"
