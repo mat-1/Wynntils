@@ -22,9 +22,7 @@ jobs:
         name: build-artifacts
         path: build/libs
 
-    - name: Create a Release
-      uses: elgohr/Github-Release-Action@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+    - name: Release
+      uses: softprops/action-gh-release@v1
       with:
-        args: Update
+        files: Wynntils.jar

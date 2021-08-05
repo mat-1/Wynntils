@@ -171,7 +171,7 @@ shadowJar {
         include(dependency('javazoom:jlayer:.*'))
     }
 
-    baseName = archivesBaseName + "-" + version
+    baseName = archivesBaseName
     classifier = null
     version = null
     configurations = [project.configurations.compile]
