@@ -24,7 +24,7 @@ jobs:
 
     - uses: ncipollo/release-action@v1
       with:
-        artifacts: "Wynntils.jar"
+        artifacts: "build/libs/Wynntils.jar"
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: "update"
         commit: "development"
