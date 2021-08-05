@@ -629,8 +629,8 @@ public class WebManager {
         st.setConnectTimeout(REQUEST_TIMEOUT_MILLIS);
         st.setReadTimeout(REQUEST_TIMEOUT_MILLIS);
 
-        JsonObject main = new JsonParser().parse(IOUtils.toString(st.getInputStream(), StandardCharsets.UTF_8)).getAsJsonObject();
-        return main.getAsJsonObject(0).getAsJsonArray("assets").get(0).getAsJsonObject().get("browser_download_url").getAsString();
+        JsonArray main = new JsonParser().parse(IOUtils.toString(st.getInputStream(), StandardCharsets.UTF_8)).getAsJsonArray();
+        return main.get(0).getAsJsonObject().get("assets").getAsJsonArray().get(0).getAsJsonObject().get("browser_download_url").getAsString();
     }
 
     public static String getCuttingEdgeJarFileMD5() throws IOException {
