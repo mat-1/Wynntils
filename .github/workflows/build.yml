@@ -2,6 +2,9 @@ name: Java CI with Gradle
 
 on: [ push ]
 
+env:
+  runId: ${GITHUB_RUN_ID}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,5 +29,5 @@ jobs:
       with:
         artifacts: "build/libs/Wynntils.jar"
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag: "${GITHUB_RUN_ID}"
+        tag: ${{ env.runId }}
         commit: "development"
