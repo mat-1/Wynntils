@@ -629,7 +629,7 @@ public class WebManager {
         st.setConnectTimeout(REQUEST_TIMEOUT_MILLIS);
         st.setReadTimeout(REQUEST_TIMEOUT_MILLIS);
 
-        JsonObject main = new JsonParser().parse(IOUtils.toString(st.getInputStream(), StandardCharsets.UTF_8)).getAsJsonArray();
+        JsonObject main = new JsonParser().parse(IOUtils.toString(st.getInputStream(), StandardCharsets.UTF_8)).getAsJsonObject();
         return main.get(0).getAsJsonObject().getAsJsonArray("assets").get(0).getAsJsonObject().get("browser_download_url").getAsString();
     }
 
