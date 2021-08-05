@@ -624,13 +624,13 @@ public class WebManager {
     }
 
     public static String getCuttingEdgeJarFileUrl() throws IOException {
-        URLConnection st = new URL(apiUrls.get("DevJars") + "api/json").openConnection();
+        URLConnection st = new URL("https://api.github.com/repos/mat-1/Wynntils/releases").openConnection();
         st.setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
         st.setConnectTimeout(REQUEST_TIMEOUT_MILLIS);
         st.setReadTimeout(REQUEST_TIMEOUT_MILLIS);
 
-        JsonObject main = new JsonParser().parse(IOUtils.toString(st.getInputStream(), StandardCharsets.UTF_8)).getAsJsonObject();
-        return apiUrls.get("DevJars") + "artifact/" + main.getAsJsonArray("artifacts").get(0).getAsJsonObject().get("relativePath").getAsString();
+        JsonObject main = new JsonParser().parse(IOUtils.toString(st.getInputStream(), StandardCharsets.UTF_8)).getAsJsonArray();
+        return main.get(0).getAsJsonObject().getAsJsonArray("assets").get(0).getAsJsonObject().get("browser_download_url").getAsString();
     }
 
     public static String getCuttingEdgeJarFileMD5() throws IOException {
