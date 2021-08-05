@@ -26,3 +26,5 @@ jobs:
       with:
         artifacts: "Wynntils.jar"
         token: ${{ secrets.GITHUB_TOKEN }}
+        tag: "update"
+        commit: "development"
