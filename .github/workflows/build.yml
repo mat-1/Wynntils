@@ -24,3 +24,9 @@ jobs:
         name: build-artifacts
         path: build/libs
 
+    - uses: ncipollo/release-action@v1
+      with:
+        artifacts: "build/libs/Wynntils.jar,hashes.txt"
+        token: ${{ secrets.RELEASE_TOKEN }}
+        tag: update-${{ github.sha }}
+        commit: "development"
