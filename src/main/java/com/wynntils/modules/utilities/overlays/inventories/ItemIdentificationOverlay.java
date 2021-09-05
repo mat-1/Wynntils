@@ -24,9 +24,9 @@ import com.wynntils.webapi.profiles.item.ItemGuessProfile;
 import com.wynntils.webapi.profiles.item.ItemProfile;
 import com.wynntils.webapi.profiles.item.enums.IdentificationModifier;
 import com.wynntils.webapi.profiles.item.enums.ItemTier;
-import com.wynntils.webapi.profiles.item.enums.MajorIdentification;
 import com.wynntils.webapi.profiles.item.objects.IdentificationContainer;
-import net.minecraft.client.Minecraft;
+import com.wynntils.webapi.profiles.item.objects.MajorIdentification;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
@@ -72,7 +72,16 @@ public class ItemIdentificationOverlay implements Listener {
         replaceLore(e.getGui().getSlotUnderMouse().getStack());
     }
 
-    public static void replaceLore(ItemStack stack)  {
+    public static void replaceLore(ItemStack stack) {
+        IdentificationType idType;
+        if (Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)) idType = IdentificationType.MIN_MAX;
+        else if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL)) idType = IdentificationType.UPGRADE_CHANCES;
+        else idType = IdentificationType.PERCENTAGES;
+
+        replaceLore(stack, idType);
+    }
+
+    public static void replaceLore(ItemStack stack, IdentificationType forcedIdType)  {
         if (!UtilitiesConfig.Identifications.INSTANCE.enabled || !stack.hasDisplayName() || !stack.hasTagCompound()) return;
         NBTTagCompound nbt = stack.getTagCompound();
         if (nbt.hasKey("wynntilsIgnore")) return;
@@ -81,8 +90,8 @@ public class ItemIdentificationOverlay implements Listener {
 
         // Check if unidentified item.
         if (itemName.contains("Unidentified") && UtilitiesConfig.Identifications.INSTANCE.showItemGuesses) {
-            // Add possible identifications
             nbt.setBoolean("wynntilsIgnore", true);
+            // add possible items
             addItemGuesses(stack);
             return;
         }
@@ -93,7 +102,7 @@ public class ItemIdentificationOverlay implements Listener {
             return;
         }
 
-        NBTTagCompound wynntils = generateData(stack);
+        NBTTagCompound wynntils = generateData(stack, forcedIdType);
         ItemProfile item = WebManager.getItems().get(wynntils.getString("originName"));
 
         // Block if the item is not the real item
@@ -150,10 +159,10 @@ public class ItemIdentificationOverlay implements Listener {
                 String lore;
                 if (isInverted)
                     lore = (currentValue < 0 ? GREEN.toString() : currentValue > 0 ? RED + "+" : GRAY.toString())
-                            + currentValue + type.getInGame();
+                            + currentValue + type.getInGame(idName);
                 else
                     lore = (currentValue < 0 ? RED.toString() : currentValue > 0 ? GREEN + "+" : GRAY.toString())
-                            + currentValue + type.getInGame();
+                            + currentValue + type.getInGame(idName);
 
                 if (UtilitiesConfig.Identifications.INSTANCE.addStars && ids.hasKey(idName + "*")) {
                     lore += DARK_GREEN + "***".substring(0, ids.getInteger(idName + "*"));
@@ -343,43 +352,21 @@ public class ItemIdentificationOverlay implements Listener {
     }
 
     private static void addItemGuesses(ItemStack stack) {
-        String name = StringUtils.normalizeBadString(stack.getDisplayName());
-        String itemType = getTextWithoutFormattingCodes(name).split(" ", 3)[1];
-        String levelRange = null;
-
-        List<String> lore = ItemUtils.getLore(stack);
-
-        for (String aLore : lore) {
-            if (aLore.contains("Lv. Range")) {
-                levelRange = getTextWithoutFormattingCodes(aLore).replace("- Lv. Range: ", "");
-                break;
-            }
-        }
-
-        if (itemType == null || levelRange == null) return;
-
-        ItemGuessProfile igp = WebManager.getItemGuesses().get(levelRange);
-        if (igp == null) return;
-
-        Map<String, String> rarityMap = igp.getItems().get(itemType);
-        if (rarityMap == null) return;
-
-        ItemTier tier = ItemTier.fromTextColoredString(name);
-        String items = rarityMap.get(tier.asCapitalizedName());
-
+        String items = getItemsFromBox(stack);
         if (items == null) return;
+
+        ItemTier tier = ItemTier.fromTextColoredString(StringUtils.normalizeBadString(stack.getDisplayName()));
+
         String itemNamesAndCosts = "";
         String[] possiblitiesNames = items.split(", ");
         for (String possibleItem : possiblitiesNames) {
             ItemProfile itemProfile = WebManager.getItems().get(possibleItem);
-            String itemDescription;
+            String itemDescription = tier.getTextColor() +
+                    (UtilitiesConfig.INSTANCE.favoriteItems.contains(possibleItem) ? UNDERLINE : "") + possibleItem; // underline favs
             if (UtilitiesConfig.Identifications.INSTANCE.showGuessesPrice && itemProfile != null) {
                 int level = itemProfile.getRequirements().getLevel();
                 int itemCost = tier.getItemIdentificationCost(level);
-                itemDescription = tier.getTextColor() + possibleItem + GRAY + " [" + GREEN + itemCost + " "
-                        + EmeraldSymbols.E_STRING + GRAY + "]";
-            } else {
-                itemDescription = tier.getTextColor() + possibleItem;
+                itemDescription += GRAY + " [" + GREEN + itemCost + " " + EmeraldSymbols.E_STRING + GRAY + "]";
             }
             if (!itemNamesAndCosts.isEmpty()) {
                 itemNamesAndCosts += GRAY + ", ";
@@ -390,12 +377,7 @@ public class ItemIdentificationOverlay implements Listener {
         ItemUtils.getLoreTag(stack).appendTag(new NBTTagString(GREEN + "- " + GRAY + "Possibilities: " + itemNamesAndCosts));
     }
 
-    private static NBTTagCompound generateData(ItemStack stack) {
-        IdentificationType idType;
-        if (Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)) idType = IdentificationType.MIN_MAX;
-        else if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL)) idType = IdentificationType.UPGRADE_CHANCES;
-        else idType = IdentificationType.PERCENTAGES;
-
+    public static NBTTagCompound generateData(ItemStack stack, IdentificationType idType) {
         if (stack.hasTagCompound() && stack.getTagCompound().hasKey("wynntils")) {
             NBTTagCompound compound = stack.getTagCompound().getCompoundTag("wynntils");
 
@@ -522,6 +504,32 @@ public class ItemIdentificationOverlay implements Listener {
         if (result.length() == 0) return "";
         result.setCharAt(0, Character.toLowerCase(result.charAt(0)));
         return result.toString();
+    }
+
+    public static String getItemsFromBox(ItemStack stack) {
+        String name = StringUtils.normalizeBadString(stack.getDisplayName());
+        String itemType = getTextWithoutFormattingCodes(name).split(" ", 3)[1];
+        String levelRange = null;
+
+        List<String> lore = ItemUtils.getLore(stack);
+
+        for (String aLore : lore) {
+            if (aLore.contains("Lv. Range")) {
+                levelRange = getTextWithoutFormattingCodes(aLore).replace("- Lv. Range: ", "");
+                break;
+            }
+        }
+
+        if (itemType == null || levelRange == null) return null;
+
+        ItemGuessProfile igp = WebManager.getItemGuesses().get(levelRange);
+        if (igp == null) return null;
+
+        Map<String, String> rarityMap = igp.getItems().get(itemType);
+        if (rarityMap == null) return null;
+
+        ItemTier tier = ItemTier.fromTextColoredString(name);
+        return rarityMap.get(tier.asCapitalizedName());
     }
 
     /**

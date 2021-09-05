@@ -15,8 +15,8 @@ import com.wynntils.webapi.profiles.item.ItemProfile;
 import com.wynntils.webapi.profiles.item.enums.ItemAttackSpeed;
 import com.wynntils.webapi.profiles.item.enums.ItemTier;
 import com.wynntils.webapi.profiles.item.enums.ItemType;
-import com.wynntils.webapi.profiles.item.enums.MajorIdentification;
 import com.wynntils.webapi.profiles.item.objects.IdentificationContainer;
+import com.wynntils.webapi.profiles.item.objects.MajorIdentification;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -504,6 +504,12 @@ public interface ItemFilter extends Predicate<ItemProfile>, Comparator<ItemProfi
         public static final StatType TYPE_ATK_SPD_SUM = StatType.sum("SumAtkSpd", "Total Attack Speed", TYPE_BONUS_ATK_SPD, TYPE_ATTACK_SPEED);
         @Type.Alias("Powders")
         public static final StatType TYPE_POWDER_SLOTS = new StatType("PowderSlots", "Powder Slot Count", ItemProfile::getPowderAmount);
+
+        // user-favorited
+        @Type.Alias({"Favourited", "fav"})
+        public static final StatType TYPE_FAVORITED = new StatType("Favorited", "Favorited", i -> {
+            return i.isFavorited() ? 1 : 0;
+        });
 
         public static class StatType extends Type<ByStat> {
 

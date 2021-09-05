@@ -21,11 +21,9 @@ import com.wynntils.modules.map.instances.MapProfile;
 import com.wynntils.modules.map.managers.LootRunManager;
 import com.wynntils.modules.map.overlays.enums.MapButtonType;
 import com.wynntils.modules.map.overlays.objects.*;
-import com.wynntils.modules.questbook.managers.QuestManager;
 import com.wynntils.modules.utilities.managers.KeyManager;
 import com.wynntils.webapi.WebManager;
 import com.wynntils.webapi.profiles.TerritoryProfile;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.Tessellator;
@@ -48,17 +46,22 @@ import java.util.function.Function;
 import static net.minecraft.client.renderer.GlStateManager.*;
 
 public class WorldMapUI extends GuiMovementScreen {
-
-    private static final int MAX_ZOOM = 300;  // Note that this is the most zoomed out
+    private static final int MAX_ZOOM = 500;  // Note that this is the most zoomed out
     private static final int MIN_ZOOM = -10;  // And this is the most zoomed in
     private static final float ZOOM_SCALE_FACTOR = 1.1f;
+    protected static long ZOOM_RESISTANCE = 100; // The zoom resistance in ms (any change takes 200ms)
 
     protected ScreenRenderer renderer = new ScreenRenderer();
 
     // Position Related
-    protected float centerPositionX = Float.NaN;
-    protected float centerPositionZ = Float.NaN;
-    protected int zoom = 0;  // Zoom goes from 300 (whole world) to -10 (max details)
+    protected float centerPositionX;
+    protected float centerPositionZ;
+
+    // Zoom
+    protected float zoom = 0;  // Zoom goes from 300 (whole world) to -10 (max details)
+    protected float zoomInitial = 0;
+    protected float zoomTarget = 0;
+    protected float zoomEnd = 0;
 
     // Properties
     float minX = 0; float maxX = 0;
@@ -93,13 +96,8 @@ public class WorldMapUI extends GuiMovementScreen {
         }
 
         // Also creates icons
-        updateCenterPosition(startX, startZ);
-
-        if (MapConfig.INSTANCE.hideCompletedQuests) {
-            // Request analyse if not already done to
-            // hide completed quests
-            QuestManager.readQuestBook();
-        }
+        createIcons();
+        this.centerPositionX = startX; this.centerPositionZ = startZ;
 
         this.animationEnd = System.currentTimeMillis() + MapConfig.WorldMap.INSTANCE.animationLength;
 
@@ -109,8 +107,16 @@ public class WorldMapUI extends GuiMovementScreen {
         );
     }
 
+    @Override
+    public void initGui() {
+        super.initGui();
+
+        updateCenterPosition(centerPositionX, centerPositionZ);
+        Keyboard.enableRepeatEvents(true);
+    }
+
     protected void addButton(MapButtonType type, int offsetX, List<String> hover, Function<Void, Boolean> isEnabled, BiConsumer<MapButton, Integer> onClick) {
-        // add the buttom base
+        // add the button base
         if (mapButtons.isEmpty()) {
             mapButtons.add(new MapButton(width / 2, height - 45, MapButtonType.BASE, null, (v) -> true, null));
         }
@@ -125,7 +131,7 @@ public class WorldMapUI extends GuiMovementScreen {
         List<MapIcon> apiMapIcons = MapIcon.getApiMarkers(MapConfig.INSTANCE.iconTexture);
         // Handles map labels from map.wynncraft.com
         List<MapIcon> mapLabels = MapIcon.getLabels();
-        // HeyZeer0: Handles all waypoints
+        // Handles all waypoints
         List<MapIcon> wpMapIcons = MapIcon.getWaypoints();
         List<MapIcon> pathWpMapIcons = MapIcon.getPathWaypoints();
         // Handles guild / party / friends
@@ -152,6 +158,7 @@ public class WorldMapUI extends GuiMovementScreen {
                 } else {
                     icon = new WorldMapIcon(i);
                 }
+
                 icons.add(icon);
             }
         }
@@ -227,10 +234,9 @@ public class WorldMapUI extends GuiMovementScreen {
         return getScaleFactor(zoom);
     }
 
-    protected float getScaleFactor(int zoom) {
+    protected float getScaleFactor(float zoom) {
         // How many blocks in one pixel
-        // TODO this needs to scale in even numbers to avoid distortion!
-        return 1f / (1f + zoom / 50f);
+        return 50f / (zoom + 50f);
     }
 
     protected void updatePosition(int mouseX, int mouseY, boolean canMove) {
@@ -248,6 +254,7 @@ public class WorldMapUI extends GuiMovementScreen {
         if (!Reference.onWorld || !MapModule.getModule().getMainMap().isReadyToUse()) return;
 
         handleOpenAnimation();
+        handleZoomAcceleration(partialTicks);
 
         // texture
         renderer.drawRectF(Textures.Map.full_map, 10, 10, width - 10, height - 10, 1, 1, 511, 255);
@@ -299,7 +306,7 @@ public class WorldMapUI extends GuiMovementScreen {
 
         float scale = getScaleFactor();
         // draw map icons
-        boolean[] needToReset = { false };
+        final boolean[] needToReset = {false};
         enableBlend();
         forEachIcon(i -> {
             if (i.getInfo().hasDynamicLocation()) resetIcon(i);
@@ -312,29 +319,7 @@ public class WorldMapUI extends GuiMovementScreen {
 
         if (needToReset[0]) resetAllIcons();
 
-        float playerPositionX = (map.getTextureXPosition(McIf.player().posX) - minX) / (maxX - minX);
-        float playerPositionZ = (map.getTextureZPosition(McIf.player().posZ) - minZ) / (maxZ - minZ);
-
-        if (playerPositionX > 0 && playerPositionX < 1 && playerPositionZ > 0 && playerPositionZ < 1) {  // <--- player position
-            playerPositionX = width * playerPositionX;
-            playerPositionZ = height * playerPositionZ;
-
-            Point drawingOrigin = ScreenRenderer.drawingOrigin();
-
-            pushMatrix();
-            translate(drawingOrigin.x + playerPositionX, drawingOrigin.y + playerPositionZ, 0);
-            rotate(180 + MathHelper.fastFloor(McIf.player().rotationYaw), 0, 0, 1);
-            translate(-drawingOrigin.x - playerPositionX, -drawingOrigin.y - playerPositionZ, 0);
-
-            MapConfig.PointerType type = MapConfig.Textures.INSTANCE.pointerStyle;
-
-            MapConfig.Textures.INSTANCE.pointerColor.applyColor();
-            enableAlpha();
-            renderer.drawRectF(Textures.Map.map_pointers, playerPositionX - type.dWidth * 1.5f, playerPositionZ - type.dHeight * 1.5f, playerPositionX + type.dWidth * 1.5f, playerPositionZ + type.dHeight * 1.5f, 0, type.yStart, type.width, type.yStart + type.height);
-            color(1, 1, 1, 1);
-
-            popMatrix();
-        }
+        drawPositionCursor(map);
 
         if (MapConfig.WorldMap.INSTANCE.keepTerritoryVisible || Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)) {
             territories.values().forEach(c -> c.drawScreen(mouseX, mouseY, partialTicks,
@@ -360,6 +345,32 @@ public class WorldMapUI extends GuiMovementScreen {
         renderer.drawString(worldX + ", " + worldZ, width / 2.0f, height - 70, CommonColors.WHITE, SmartFontRenderer.TextAlignment.MIDDLE, SmartFontRenderer.TextShadow.OUTLINE);
     }
 
+    protected void drawPositionCursor(MapProfile map) {
+        float playerPositionX = (map.getTextureXPosition(McIf.player().posX) - minX) / (maxX - minX);
+        float playerPositionZ = (map.getTextureZPosition(McIf.player().posZ) - minZ) / (maxZ - minZ);
+
+        if (playerPositionX > 0 && playerPositionX < 1 && playerPositionZ > 0 && playerPositionZ < 1) {  // <--- player position
+            playerPositionX = width * playerPositionX;
+            playerPositionZ = height * playerPositionZ;
+
+            Point drawingOrigin = ScreenRenderer.drawingOrigin();
+
+            pushMatrix();
+            translate(drawingOrigin.x + playerPositionX, drawingOrigin.y + playerPositionZ, 0);
+            rotate(180 + MathHelper.fastFloor(McIf.player().rotationYaw), 0, 0, 1);
+            translate(-drawingOrigin.x - playerPositionX, -drawingOrigin.y - playerPositionZ, 0);
+
+            MapConfig.PointerType type = MapConfig.Textures.INSTANCE.pointerStyle;
+
+            MapConfig.Textures.INSTANCE.pointerColor.applyColor();
+            enableAlpha();
+            renderer.drawRectF(Textures.Map.map_pointers, playerPositionX - type.dWidth * 1.5f, playerPositionZ - type.dHeight * 1.5f, playerPositionX + type.dWidth * 1.5f, playerPositionZ + type.dHeight * 1.5f, 0, type.yStart, type.width, type.yStart + type.height);
+            color(1, 1, 1, 1);
+
+            popMatrix();
+        }
+    }
+
     protected void drawMapButtons(int mouseX, int mouseY, float partialTicks) {
         if (mapButtons.isEmpty()) return;
 
@@ -383,7 +394,17 @@ public class WorldMapUI extends GuiMovementScreen {
         float invertedProgress = (animationEnd - System.currentTimeMillis()) / (float) MapConfig.WorldMap.INSTANCE.animationLength;
         double radians = (Math.PI / 2f) * invertedProgress;
 
-        zoom = (int)(25 * Math.sin(radians));
+        zoom = (float) (25 * Math.sin(radians));
+        updateCenterPosition(centerPositionX, centerPositionZ);
+    }
+
+    protected void handleZoomAcceleration(float partialTicks) {
+        if (McIf.getSystemTime() > zoomEnd) return;
+
+        float percentage = Math.min(1f, 1f - (zoomEnd - McIf.getSystemTime()) / ZOOM_RESISTANCE);
+        double toIncrease = (zoomTarget - zoomInitial) * Math.sin((Math.PI / 2f) * percentage);
+
+        zoom = zoomInitial + (float) toIncrease;
         updateCenterPosition(centerPositionX, centerPositionZ);
     }
 
@@ -401,7 +422,7 @@ public class WorldMapUI extends GuiMovementScreen {
 
         pushMatrix();
         {
-            translate(width / 2, height / 2, 0);
+            translate(width / 2f, height / 2f, 0);
             scale(2, 2, 2);
             renderer.drawString("You're outside the main map area", 0, 0, OUTSIDE_MAP_COLOR_1,
                     SmartFontRenderer.TextAlignment.MIDDLE, SmartFontRenderer.TextShadow.NORMAL
@@ -414,18 +435,18 @@ public class WorldMapUI extends GuiMovementScreen {
         popMatrix();
     }
 
-    private void zoomBy(int by) {
+    private void zoomBy(float by) {
         double zoomScale = Math.pow(ZOOM_SCALE_FACTOR, -by);
-        zoom = MathHelper.clamp((int) Math.round(zoomScale * (zoom + 50) - 50), MIN_ZOOM, MAX_ZOOM);
+        zoom = (float) MathHelper.clamp(zoomScale * (zoom + 50) - 50, MIN_ZOOM, MAX_ZOOM);
         updateCenterPosition(centerPositionX, centerPositionZ);
     }
 
-    @Override
-    public void initGui() {
-        super.initGui();
+    private void accelerateZoomBy(float by) {
+        double zoomScale = Math.pow(ZOOM_SCALE_FACTOR, -by);
+        zoomTarget = (float) MathHelper.clamp(zoomScale * (zoom + 50) - 50, MIN_ZOOM, MAX_ZOOM);
 
-        updateCenterPosition(centerPositionX, centerPositionZ);
-        Keyboard.enableRepeatEvents(true);
+        zoomEnd = McIf.getSystemTime() + ZOOM_RESISTANCE;
+        zoomInitial = zoom;
     }
 
     @Override
@@ -441,10 +462,14 @@ public class WorldMapUI extends GuiMovementScreen {
         // allow scroll only after animation ended
         if (System.currentTimeMillis() > animationEnd) {
             int mDWheel = Mouse.getEventDWheel() * CoreDBConfig.INSTANCE.scrollDirection.getScrollDirection();
+
+            // Zoom faster if we are really far
+            float zoomAmount = 2f + (4f * (zoom / MAX_ZOOM));
+
             if (mDWheel > 0) {
-                zoomBy(+1);
+                accelerateZoomBy(zoomAmount);
             } else if (mDWheel < 0) {
-                zoomBy(-1);
+                accelerateZoomBy(-zoomAmount);
             }
         }
 
@@ -454,12 +479,12 @@ public class WorldMapUI extends GuiMovementScreen {
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
         if (keyCode == KeyManager.getZoomInKey().getKeyBinding().getKeyCode()) {
-            zoomBy(+2);
+            accelerateZoomBy(4f);
             return;
         }
 
         if (keyCode == KeyManager.getZoomOutKey().getKeyBinding().getKeyCode()) {
-            zoomBy(-2);
+            accelerateZoomBy(-4f);
             return;
         }
 

@@ -14,6 +14,7 @@ import com.wynntils.core.utils.Utils;
 import com.wynntils.modules.core.overlays.UpdateOverlay;
 import com.wynntils.modules.map.MapModule;
 import com.wynntils.modules.map.overlays.objects.MapApiIcon;
+import com.wynntils.modules.map.overlays.objects.SeaskipperLocation;
 import com.wynntils.webapi.account.WynntilsAccount;
 import com.wynntils.webapi.profiles.*;
 import com.wynntils.webapi.profiles.guild.GuildProfile;
@@ -22,10 +23,12 @@ import com.wynntils.webapi.profiles.item.ItemGuessProfile;
 import com.wynntils.webapi.profiles.item.ItemProfile;
 import com.wynntils.webapi.profiles.item.enums.ItemType;
 import com.wynntils.webapi.profiles.item.objects.IdentificationContainer;
+import com.wynntils.webapi.profiles.item.objects.MajorIdentification;
 import com.wynntils.webapi.profiles.music.MusicLocationsProfile;
 import com.wynntils.webapi.profiles.player.PlayerStatsProfile;
 import com.wynntils.webapi.request.Request;
 import com.wynntils.webapi.request.RequestHandler;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.ProgressManager;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -61,6 +64,7 @@ public class WebManager {
     private static HashMap<String, String> internalIdentifications = new HashMap<>();
     private static HashMap<ItemType, String[]> materialTypes = new HashMap<>();
     private static HashMap<String, ItemGuessProfile> itemGuesses = new HashMap<>();
+    private static HashMap<String, MajorIdentification> majorIds = new HashMap<>();
 
     private static ArrayList<MapMarkerProfile> mapMarkers = new ArrayList<>();
     private static ArrayList<MapLabelProfile> mapLabels = new ArrayList<>();
@@ -71,6 +75,7 @@ public class WebManager {
     private static String currentSplash = "";
 
     private static ArrayList<DiscoveryProfile> discoveries = new ArrayList<>();
+    private static ArrayList<SeaskipperProfile> seaskipperLocations = new ArrayList<>();
 
     private static MusicLocationsProfile musicLocations = new MusicLocationsProfile();
 
@@ -118,6 +123,7 @@ public class WebManager {
         updatePlayerProfile(handler);
         updateDiscoveries(handler);
         updateMusicLocations(handler);
+        updateSeaskipperLocations(handler);
         updateCurrentSplash();
 
         handler.dispatchAsync();
@@ -218,6 +224,10 @@ public class WebManager {
 
     public static MusicLocationsProfile getMusicLocations() {
         return musicLocations;
+    }
+
+    public static ArrayList<SeaskipperProfile> getSeaskipperLocations() {
+        return seaskipperLocations;
     }
 
     public static String getTranslatedItemName(String name) {
@@ -440,11 +450,20 @@ public class WebManager {
             .cacheTo(new File(API_CACHE_ROOT, "item_list.json"))
             .cacheMD5Validator(() -> getAccount().getMD5Verification("itemList"))
             .handleJsonObject(j -> {
+                translatedReferences = gson.fromJson(j.getAsJsonObject("translatedReferences"), HashMap.class);
+                internalIdentifications = gson.fromJson(j.getAsJsonObject("internalIdentifications"), HashMap.class);
+                Type majorIdsType = new TypeToken<HashMap<String, MajorIdentification>>(){}.getType();
+                majorIds = gson.fromJson(j.getAsJsonObject("majorIdentifications"), majorIdsType);
+                Type materialTypesType = new TypeToken<HashMap<ItemType, String[]>>(){}.getType();
+                materialTypes = gson.fromJson(j.getAsJsonObject("materialTypes"), materialTypesType);
+                IdentificationOrderer.INSTANCE = gson.fromJson(j.getAsJsonObject("identificationOrder"), IdentificationOrderer.class);
+
                 ItemProfile[] gItems = gson.fromJson(j.getAsJsonArray("items"), ItemProfile[].class);
 
                 HashMap<String, ItemProfile> citems = new HashMap<>();
                 for (ItemProfile prof : gItems) {
                     prof.getStatuses().values().forEach(IdentificationContainer::calculateMinMax);
+                    prof.addMajorIds(majorIds);
                     citems.put(prof.getDisplayName(), prof);
                 }
 
@@ -453,11 +472,6 @@ public class WebManager {
                 directItems = citems.values();
                 items = citems;
 
-                translatedReferences = gson.fromJson(j.getAsJsonObject("translatedReferences"), HashMap.class);
-                internalIdentifications = gson.fromJson(j.getAsJsonObject("internalIdentifications"), HashMap.class);
-                Type materialTypesType = new TypeToken<HashMap<ItemType, String[]>>(){}.getType();
-                materialTypes = gson.fromJson(j.getAsJsonObject("materialTypes"), materialTypesType);
-                IdentificationOrderer.INSTANCE = gson.fromJson(j.getAsJsonObject("identificationOrder"), IdentificationOrderer.class);
                 return true;
             })
         );
@@ -564,6 +578,19 @@ public class WebManager {
                     return true;
                 })
         );
+    }
+
+    public static void updateSeaskipperLocations(RequestHandler handler) {
+        if (apiUrls == null) return;
+        String url = apiUrls.get("Seaskipper");
+        handler.addRequest(new Request(url, "seaskipper")
+            .cacheTo(new File(API_CACHE_ROOT, "seaskipper.json"))
+            .handleJsonArray(seaskipperJson -> {
+                Type type = new TypeToken<ArrayList<SeaskipperProfile>>() {}.getType();
+
+                seaskipperLocations = gson.fromJson(seaskipperJson, type);
+                return true;
+            }));
     }
 
     public static String getStableJarFileUrl() throws IOException {

@@ -1,5 +1,5 @@
 /*
- *  * Copyright © Wynntils - 2018 - 2021.
+ *  * Copyright © Wynntils - 2021.
  */
 
 package com.wynntils.modules.utilities.configs;
@@ -411,7 +411,7 @@ public class OverlayConfig extends SettingsClass {
         public static TerritoryFeed INSTANCE;
 
         @Setting(displayName = "Territory Feed", description = "Should the territory feed be displayed?", order = 0)
-        public boolean enabled = true;
+        public boolean enabled = false;
 
         @Setting(displayName = "Animation Length", description = "How long (in seconds) should messages on the territory feed be displayed?")
         @Setting.Limitations.IntLimit(min = 1, max = 60)
@@ -707,7 +707,7 @@ public class OverlayConfig extends SettingsClass {
         public static Objectives INSTANCE;
 
         @Setting(displayName = "Enable Objectives Overlay", description = "Should the sidebar scoreboard be replaced by this overlay?\n\n§8This overlay works best if the scoreboard overlay is enabled as well.", order = 0)
-        public boolean enableObjectives = true;
+        public boolean enabled = false;
 
         @Setting(displayName = "Hide on Inactivity", description = "Should the overlay be hidden unless the objective has been updated?", order = 1)
         public boolean hideOnInactivity = false;

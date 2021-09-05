@@ -17,7 +17,9 @@ import com.wynntils.webapi.profiles.item.enums.ItemTier;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -48,6 +50,9 @@ public class UtilitiesConfig extends SettingsClass {
 
     @Setting(displayName = "Prevent Mythic Chest Closing", description = "Should the closing of loot chests be prevented when they contain mythics?")
     public boolean preventMythicChestClose = true;
+
+    @Setting(displayName = "Prevent Favorited Item Chest Closing", description = "Should the closing of loot chests be prevented when they contain favorited items?")
+    public boolean preventFavoritedChestClose = true;
 
     @Setting(displayName = "Prevent Clicking on Locked Items", description = "Should moving items to and from locked inventory slots be blocked?")
     public boolean preventSlotClicking = false;
@@ -100,6 +105,9 @@ public class UtilitiesConfig extends SettingsClass {
     @Setting
     public Map<String, SkillPointAllocation> skillPointLoadouts = new HashMap<>();
 
+    @Setting
+    public List<String> favoriteItems = new ArrayList<>();
+
     public enum FovScalingFunction {
         Vanilla,
         Arctangent,
@@ -119,6 +127,9 @@ public class UtilitiesConfig extends SettingsClass {
 
         @Setting(displayName = "Show Item Identification Stars", description = "Should the star rating of an item's identifications be shown?")
         public boolean addStars = false;
+
+        @Setting(displayName = "Legacy Identification Values", description = "Should mana and life steal stats display as /4s instead of /3s and /5s?")
+        public boolean legacyIds = false;
 
         @Setting(displayName = "Rainbow Perfect Items", description = "Should perfect items have rainbow names?")
         public boolean rainbowPerfect = true;

@@ -5,11 +5,9 @@
 package com.wynntils.modules.chat.managers;
 
 import com.wynntils.McIf;
-import com.wynntils.core.framework.enums.PowderManualChapter;
 import com.wynntils.core.framework.instances.PlayerInfo;
 import com.wynntils.core.framework.instances.data.CharacterData;
 import com.wynntils.core.utils.StringUtils;
-import com.wynntils.core.utils.helpers.TextAction;
 import com.wynntils.core.utils.objects.Pair;
 import com.wynntils.modules.chat.configs.ChatConfig;
 import com.wynntils.modules.chat.language.WynncraftLanguage;
@@ -18,6 +16,7 @@ import com.wynntils.modules.questbook.enums.AnalysePosition;
 import com.wynntils.modules.questbook.instances.DiscoveryInfo;
 import com.wynntils.modules.questbook.managers.QuestManager;
 import com.wynntils.modules.utilities.configs.TranslationConfig;
+import com.wynntils.modules.utilities.managers.ChatItemManager;
 import com.wynntils.webapi.services.TranslationManager;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.init.Items;
@@ -63,6 +62,7 @@ public class ChatManager {
     private static String lastChat = null;
     private static final int WYNN_DIALOGUE_NEW_MESSAGES_ID = "wynn_dialogue_new_messages".hashCode();
     private static int lineCount = -1;
+    private static ITextComponent dialogueChat = null;
 
     private static final SoundEvent popOffSound = new SoundEvent(new ResourceLocation("minecraft", "entity.blaze.hurt"));
 
@@ -99,32 +99,7 @@ public class ChatManager {
 
         // timestamps
         if (ChatConfig.INSTANCE.addTimestampsToChat) {
-            if (dateFormat == null || !validDateFormat) {
-                try {
-                    dateFormat = new SimpleDateFormat(ChatConfig.INSTANCE.timestampFormat);
-                    validDateFormat = true;
-                } catch (IllegalArgumentException ex) {
-                    validDateFormat = false;
-                }
-            }
-
-            List<ITextComponent> timeStamp = new ArrayList<>();
-            ITextComponent startBracket = new TextComponentString("[");
-            startBracket.getStyle().setColor(TextFormatting.DARK_GRAY);
-            timeStamp.add(startBracket);
-            ITextComponent time;
-            if (validDateFormat) {
-                time = new TextComponentString(dateFormat.format(new Date()));
-                time.getStyle().setColor(TextFormatting.GRAY);
-            } else {
-                time = new TextComponentString("Invalid Format");
-                time.getStyle().setColor(TextFormatting.RED);
-            }
-            timeStamp.add(time);
-            ITextComponent endBracket = new TextComponentString("] ");
-            endBracket.getStyle().setColor(TextFormatting.DARK_GRAY);
-            timeStamp.add(endBracket);
-            in.getSiblings().addAll(0, timeStamp);
+            addTimestamp(in);
         }
 
         // popup sound
@@ -295,7 +270,6 @@ public class ChatManager {
 
         // clickable coordinates
         if (ChatConfig.INSTANCE.clickableCoordinates && coordinateReg.matcher(McIf.getUnformattedText(in)).find()) {
-
             ITextComponent temp = new TextComponentString("");
             for (ITextComponent texts : in) {
                 Matcher m = coordinateReg.matcher(texts.getUnformattedComponentText());
@@ -342,30 +316,43 @@ public class ChatManager {
             in = temp;
         }
 
-        //powder manual
-        if (ChatConfig.INSTANCE.customPowderManual && McIf.getUnformattedText(in).equals("                         Powder Manual")) {
-            List<ITextComponent> chapterSelect = new ArrayList<>();
+        // chat item tooltips
+        if (ChatItemManager.ENCODED_PATTERN.matcher(McIf.getUnformattedText(in)).find()) {
+            ITextComponent temp = new TextComponentString("");
+            for (ITextComponent comp : in) {
+                Matcher m = ChatItemManager.ENCODED_PATTERN.matcher(comp.getUnformattedComponentText());
+                if (!m.find()) {
+                    ITextComponent newComponent = new TextComponentString(comp.getUnformattedComponentText());
+                    newComponent.setStyle(comp.getStyle().createShallowCopy());
+                    temp.appendSibling(newComponent);
+                    continue;
+                }
 
-            ITextComponent offset = new TextComponentString("\n               "); //to center chapter select
-            ITextComponent spacer = new TextComponentString("   "); //space between chapters
+                do {
+                    String text = McIf.getUnformattedText(comp);
+                    Style style = comp.getStyle();
 
-            chapterSelect.add(offset);
+                    ITextComponent item = ChatItemManager.decodeItem(m.group());
+                    if (item == null) { // couldn't decode, skip
+                        comp = new TextComponentString(comp.getUnformattedComponentText());
+                        comp.setStyle(style.createShallowCopy());
+                        continue;
+                    }
 
-            for (int i = 1; i <= 3; i++) {
-                ITextComponent chapter = new TextComponentString("Chapter " + i);
-                chapter.getStyle()
-                        .setColor(TextFormatting.GOLD)
-                        .setUnderlined(true)
-                        .setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TextComponentString("Click to read Chapter " + i)));
-                chapter = TextAction.withDynamicEvent(chapter, new ChapterReader(i));
+                    ITextComponent preText = new TextComponentString(text.substring(0, m.start()));
+                    preText.setStyle(style.createShallowCopy());
+                    temp.appendSibling(preText);
 
-                chapterSelect.add(chapter);
-                chapterSelect.add(spacer);
+                    temp.appendSibling(item);
+
+                    comp = new TextComponentString(text.substring(m.end()));
+                    comp.setStyle(style.createShallowCopy());
+
+                    m = ChatItemManager.ENCODED_PATTERN.matcher(comp.getUnformattedText()); // recreate matcher for new substring
+                } while (m.find()); // search for multiple items in the same message
+                temp.appendSibling(comp); // leftover text after item(s)
             }
-
-            chapterSelect.add(new TextComponentString("\n"));
-            in.getSiblings().addAll(chapterSelect);
-
+            in = temp;
         }
 
         return new Pair<>(in, null);
@@ -926,8 +913,8 @@ public class ChatManager {
             newMessageCount = 0;
             lastChat = null;
             lineCount = -1;
+            dialogueChat = null;
             ChatOverlay.getChat().deleteChatLine(WYNN_DIALOGUE_NEW_MESSAGES_ID);
-            QuestManager.updateAnalysis(AnalysePosition.QUESTS, true, true);
             return new Pair<>(true, null);
         }
 
@@ -954,7 +941,7 @@ public class ChatManager {
                 return new Pair<>(false, component);
             }
             chat = siblings.subList(0, siblings.size() - lineCount).stream().map(McIf::getUnformattedText).collect(Collectors.joining());
-            chat = chat.substring(0, chat.length() - 1);
+            if (!chat.isEmpty()) chat = chat.substring(0, chat.length() - 1);
             dialogue = new ArrayList<>(siblings.subList(siblings.size() - lineCount, siblings.size()));
             if (!chat.equals(lastChat) && !dialogue.equals(last)) {
                 return new Pair<>(false, component);
@@ -964,17 +951,26 @@ public class ChatManager {
         if (inDialogue) {
             // Detect new messages
             // If dialogue is the exact same as previously then most likely a message was received
-            if (dialogue.equals(last)) {
+            // The second check is for the colors changing on the shift prompt
+            if (dialogue.equals(last) && dialogue.get(dialogue.size() - 1).getSiblings().equals(last.get(last.size()-1).getSiblings())) {
                 newMessageCount++;
+
+                // most recent message
+                ITextComponent newMessage = siblings.get(siblings.size() - lineCount - 1);
+                // filter out info messages because they wont be caught through the normal checks
+                if (!newMessage.getUnformattedText().startsWith("[Info] ") || !ChatConfig.INSTANCE.filterWynncraftInfo) {
+                    if (dialogueChat == null) {
+                        dialogueChat = newMessage;
+                    } else {
+                        if (ChatConfig.INSTANCE.addTimestampsToChat) addTimestamp(newMessage); // add timestamps to new lines for consistency
+                        dialogueChat.appendSibling(newMessage);
+                    }
+                }
             }
 
-            if (newMessageCount > 0) {
-                ITextComponent message = new TextComponentString(newMessageCount + " delayed message" + (newMessageCount > 1 ? "s" : ""));
-                message.getStyle().setColor(TextFormatting.GRAY);
-                ChatOverlay.getChat().printChatMessageWithOptionalDeletion(message, WYNN_DIALOGUE_NEW_MESSAGES_ID);
-            }
+            if (dialogueChat != null) ChatOverlay.getChat().printChatMessageWithOptionalDeletion(dialogueChat, WYNN_DIALOGUE_NEW_MESSAGES_ID);
+
             lastChat = chat;
-
             ITextComponent newComponent = new TextComponentString("");
             newComponent.getSiblings().addAll(dialogue);
             last = new ArrayList<>(dialogue);
@@ -993,41 +989,40 @@ public class ChatManager {
         ChatOverlay.getChat().deleteChatLine(ChatOverlay.WYNN_DIALOGUE_ID);
     }
 
+    private static void addTimestamp(ITextComponent in) {
+        if (dateFormat == null || !validDateFormat) {
+            try {
+                dateFormat = new SimpleDateFormat(ChatConfig.INSTANCE.timestampFormat);
+                validDateFormat = true;
+            } catch (IllegalArgumentException ex) {
+                validDateFormat = false;
+            }
+        }
+
+        List<ITextComponent> timeStamp = new ArrayList<>();
+        ITextComponent startBracket = new TextComponentString("[");
+        startBracket.getStyle().setColor(TextFormatting.DARK_GRAY);
+        timeStamp.add(startBracket);
+        ITextComponent time;
+        if (validDateFormat) {
+            time = new TextComponentString(dateFormat.format(new Date()));
+            time.getStyle().setColor(TextFormatting.GRAY);
+        } else {
+            time = new TextComponentString("Invalid Format");
+            time.getStyle().setColor(TextFormatting.RED);
+        }
+        timeStamp.add(time);
+        ITextComponent endBracket = new TextComponentString("] ");
+        endBracket.getStyle().setColor(TextFormatting.DARK_GRAY);
+        timeStamp.add(endBracket);
+        in.getSiblings().addAll(0, timeStamp);
+    }
+
     public static void setDiscoveriesLoaded(boolean discoveriesLoaded) {
         ChatManager.discoveriesLoaded = discoveriesLoaded;
     }
 
     public static boolean getDiscoveriesLoaded() {
         return ChatManager.discoveriesLoaded;
-    }
-
-    private static class ChapterReader implements Runnable {
-
-        ITextComponent chapterText;
-
-        public ChapterReader(int chapter) {
-            String text;
-            switch (chapter) {
-                case 1:
-                    text = PowderManualChapter.ONE.getText();
-                    break;
-                case 2:
-                    text = PowderManualChapter.TWO.getText();
-                    break;
-                case 3:
-                    text = PowderManualChapter.THREE.getText();
-                    break;
-                default: text = "";
-            }
-
-            chapterText = new TextComponentString(text);
-
-        }
-
-        @Override
-        public void run() {
-            McIf.player().sendMessage(chapterText);
-        }
-
     }
 }

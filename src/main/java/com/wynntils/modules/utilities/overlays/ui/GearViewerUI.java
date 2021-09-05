@@ -23,9 +23,11 @@ import com.wynntils.modules.utilities.overlays.inventories.ItemIdentificationOve
 import com.wynntils.webapi.WebManager;
 import com.wynntils.webapi.profiles.item.IdentificationOrderer;
 import com.wynntils.webapi.profiles.item.ItemProfile;
-import com.wynntils.webapi.profiles.item.enums.MajorIdentification;
+import com.wynntils.webapi.profiles.item.enums.ItemTier;
 import com.wynntils.webapi.profiles.item.objects.IdentificationContainer;
 import com.wynntils.webapi.profiles.item.objects.ItemRequirementsContainer;
+import com.wynntils.webapi.profiles.item.objects.MajorIdentification;
+
 import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.renderer.GlStateManager;
@@ -136,15 +138,18 @@ public class GearViewerUI extends FakeGuiContainer {
             return;
         }
 
-        // get item from name
-        if (WebManager.getItems().get(itemName) == null) return;
-        ItemProfile item = WebManager.getItems().get(itemName);
-
         // disable viewing unidentified items
         if (stack.getItem() == Items.STONE_SHOVEL && stack.getItemDamage() >= 1 && stack.getItemDamage() <= 6) {
-            stack.setStackDisplayName(item.getTier().getTextColor() + "Unidentified Item");
+            stack.setStackDisplayName(ItemTier.fromBoxDamage(stack.getItemDamage()).getTextColor() + "Unidentified Item");
             return;
         }
+
+        // get item from name
+        if (WebManager.getItems().get(itemName) == null) {
+            ItemUtils.replaceLore(stack, new ArrayList<>()); // empty the lore if the item isn't recognized
+            return;
+        }
+        ItemProfile item = WebManager.getItems().get(itemName);
 
         // attempt to parse item data
         JsonObject data;
@@ -257,10 +262,10 @@ public class GearViewerUI extends FakeGuiContainer {
                 String lore;
                 if (isInverted)
                     lore = (value < 0 ? GREEN.toString() : value > 0 ? RED + "+" : GRAY.toString())
-                            + value + idContainer.getType().getInGame();
+                            + value + idContainer.getType().getInGame(translatedId);
                 else
                     lore = (value < 0 ? RED.toString() : value > 0 ? GREEN + "+" : GRAY.toString())
-                            + value + idContainer.getType().getInGame();
+                            + value + idContainer.getType().getInGame(translatedId);
 
                 // set stars
                 if ((!isInverted && value > 0) || (isInverted && value < 0)) {
