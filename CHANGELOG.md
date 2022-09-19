@@ -1,7 +1,7 @@
-### [1.14.2](https://github.com/Wynntils/Wynntils/compare/v1.14.1...v1.14.2) (2022-09-19)
+## [1.15.0](https://github.com/Wynntils/Wynntils/compare/v1.14.2...v1.15.0) (2022-09-19)
 
 
-### Bug Fixes
+### Features
 
-* Fix quick cast keys ([#574](https://github.com/Wynntils/Wynntils/issues/574)) ([ef10a7a](https://github.com/Wynntils/Wynntils/commit/ef10a7a55b8ca4e4a1df9b6f91b0f1d815f372fb))
+* Added Arcanist Mana Bank Bar ([#578](https://github.com/Wynntils/Wynntils/issues/578)) ([fb8b1ec](https://github.com/Wynntils/Wynntils/commit/fb8b1ec68373189dcceb796119d56cd7dbb8f50d))
 
